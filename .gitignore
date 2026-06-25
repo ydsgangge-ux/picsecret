@@ -1,2 +1,3 @@
 # PicSecret .gitignore
 .git/
+.github/workflows/  
