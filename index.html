@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicSecret 图密 - 图片隐写通信</title>
+    <style>
+        :root {
+            --bg: #f0f4ff;
+            --card: #ffffff;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --primary-light: #eef2ff;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --input-bg: #f8fafc;
+            --success: #059669;
+            --success-bg: #ecfdf5;
+            --error: #dc2626;
+            --error-bg: #fef2f2;
+            --warning: #d97706;
+            --warning-bg: #fffbeb;
+            --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+            --shadow-lg: 0 10px 25px rgba(0,0,0,.08);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: 0.2s ease;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+            color: #fff;
+            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(79,70,229,.3);
+        }
+        .header-inner {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo-area { display: flex; align-items: center; gap: 10px; }
+        .logo-icon { font-size: 28px; }
+        .logo-text h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+        .logo-text span { font-size: 11px; opacity: .7; display: block; }
+        .lang-toggle {
+            display: flex;
+            background: rgba(255,255,255,.15);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .lang-btn {
+            padding: 6px 14px;
+            border: none;
+            background: transparent;
+            color: rgba(255,255,255,.7);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+        .lang-btn.active { background: rgba(255,255,255,.25); color: #fff; }
+        .lang-btn:hover:not(.active) { color: #fff; }
+
+        /* Main */
+        .main { max-width: 800px; margin: 0 auto; padding: 24px 20px 60px; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 4px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 10px;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(79,70,229,.3); }
+        .tab-btn:hover:not(.active) { color: var(--text); }
+
+        /* Tab content */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Card */
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title .icon { font-size: 20px; }
+
+        /* Upload zone */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            background: var(--input-bg);
+            position: relative;
+        }
+        .upload-zone:hover, .upload-zone.drag-over {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+        .upload-zone .upload-icon { font-size: 48px; margin-bottom: 8px; }
+        .upload-zone .upload-text { font-size: 14px; color: var(--text-secondary); }
+        .upload-zone .upload-hint { font-size: 12px; color: var(--text-secondary); margin-top: 4px; opacity: .7; }
+        .upload-zone input[type=file] { display: none; }
+
+        /* Image preview */
+        .preview-area { display: none; margin-top: 16px; }
+        .preview-area.show { display: block; }
+        .preview-container {
+            position: relative;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-height: 360px;
+        }
+        .preview-container img {
+            max-width: 100%;
+            max-height: 360px;
+            object-fit: contain;
+        }
+        .preview-info {
+            display: flex;
+            gap: 16px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            flex-wrap: wrap;
+        }
+        .preview-info span { display: flex; align-items: center; gap: 4px; }
+
+        /* Status badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .status-badge.found { background: var(--success-bg); color: var(--success); }
+        .status-badge.not-found { background: var(--warning-bg); color: var(--warning); }
+        .status-badge.encrypted { background: var(--primary-light); color: var(--primary); }
+        .status-badge.error { background: var(--error-bg); color: var(--error); }
+
+        /* Form elements */
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+        textarea, input[type=text], input[type=password] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: inherit;
+            background: var(--input-bg);
+            color: var(--text);
+            transition: var(--transition);
+            resize: vertical;
+            outline: none;
+        }
+        textarea:focus, input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79,70,229,.1);
+        }
+        textarea { min-height: 100px; }
+        .char-count { text-align: right; font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+        .btn-primary { background: var(--primary); color: #fff; width: 100%; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(79,70,229,.3); }
+        .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid var(--border);
+            color: var(--text);
+        }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+        /* Result */
+        .result-box {
+            background: var(--input-bg);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            margin-top: 12px;
+            word-break: break-word;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.7;
+            display: none;
+        }
+        .result-box.show { display: block; }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 999;
+            animation: toastIn .3s ease;
+            pointer-events: none;
+        }
+        .toast.success { background: var(--success); color: #fff; }
+        .toast.error { background: var(--error); color: #fff; }
+        .toast.warning { background: var(--warning); color: #fff; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        /* How it works */
+        .how-it-works { font-size: 13px; color: var(--text-secondary); }
+        .how-it-works details { margin-top: 8px; }
+        .how-it-works summary { cursor: pointer; font-weight: 600; color: var(--primary); }
+        .how-it-works .steps { margin-top: 8px; padding-left: 20px; }
+        .how-it-works .steps li { margin-bottom: 4px; }
+
+        /* Download area */
+        .download-area { display: none; margin-top: 16px; text-align: center; }
+        .download-area.show { display: block; }
+        .download-area .btn { width: auto; margin: 8px 4px; }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .footer a { color: var(--primary); text-decoration: none; }
+
+        /* Spinner */
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+            .header-inner { padding: 0 12px; }
+            .logo-text h1 { font-size: 17px; }
+            .card { padding: 16px; }
+            .upload-zone { padding: 28px 16px; }
+            .upload-zone .upload-icon { font-size: 36px; }
+            .tab-btn { font-size: 13px; padding: 10px; }
+            .preview-container { max-height: 240px; }
+            .preview-container img { max-height: 240px; }
+        }
+
+        /* Dark overrides (future-proof) */
+        @media (prefers-color-scheme: dark) {
+            /* Keeping light theme for clarity, dark support can be added */  
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+    <div class="header-inner">
+        <div class="logo-area">
+            <span class="logo-icon">🖼️🔐</span>
+            <div class="logo-text">
+                <h1>PicSecret <span style="font-size:14px;">图密</span></h1>
+                <span data-i18n="subtitle">图片隐写通信工具</span>
+            </div>
+        </div>
+        <div class="lang-toggle">
+            <button class="lang-btn active" data-lang="zh" onclick="switchLang('zh')">中文</button>
+            <button class="lang-btn" data-lang="en" onclick="switchLang('en')">EN</button>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<main class="main">
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="encode" onclick="switchTab('encode')">
+            <span>🔒</span> <span data-i18n="tab_encode">编码隐藏</span>
+        </button>
+        <button class="tab-btn" data-tab="decode" onclick="switchTab('decode')">
+            <span>🔓</span> <span data-i18n="tab_decode">解码查看</span>
+        </button>
+    </div>
+
+    <!-- ========== ENCODE TAB ========== -->
+    <div class="tab-content active" id="tab-encode">
+
+        <!-- Step 1: Upload Image -->
+        <div class="card">
+            <div class="card-title"><span class="icon">📷</span> <span data-i18n="step1_title">第1步：选择载体图片</span></div>
+            <div class="upload-zone" id="encode-upload-zone" onclick="document.getElementById('encode-file-input').click()">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text" data-i18n="upload_text">点击或拖拽上传 PNG 图片</div>
+                <div class="upload-hint" data-i18n="upload_hint">支持 PNG 格式，图片作为信息载体</div>
+                <input type="file" id="encode-file-input" accept="image/png" onchange="handleFileSelect(this, 'encode')">
+            </div>
+            <div class="preview-area" id="encode-preview-area">
+                <div class="preview-container"><img id="encode-preview-img" alt="Preview"></div>
+                <div class="preview-info" id="encode-preview-info"></div>
+            </div>
+        </div>
+
+        <!-- Step 2: Message -->
+        <div class="card">
+            <div class="card-title"><span class="icon">✍️</span> <span data-i18n="step2_title">第2步：输入秘密信息</span></div>
+            <textarea id="encode-message" data-i18n-placeholder="msg_placeholder" placeholder="在这里输入你想隐藏的秘密信息...&#10;&#10;支持任意语言文字，可以很长哦"></textarea>
+            <div class="char-count" id="encode-char-count">0 字符 / 0 chars</div>
+        </div>
+
+        <!-- Step 3: Password (optional) -->
+        <div class="card">
+            <div class="card-title"><span class="icon">🔑</span> <span data-i18n="step3_title">第3步：设置口令（可选）</span></div>
+            <input type="password" id="encode-password" data-i18n-placeholder="pwd_placeholder" placeholder="设置加密口令（留空则不加密）">
+            <div style="margin-top:6px;font-size:12px;color:var(--text-secondary);" data-i18n="pwd_hint">
+                设置口令后，信息将使用 AES-256 加密。查看者必须输入相同口令才能解密。
+            </div>
+        </div>
+
+        <!-- Encode Button -->
+        <button class="btn btn-primary" id="encode-btn" onclick="doEncode()" disabled>
+            <span data-i18n="encode_btn">🔒 编码并生成图片</span>
+        </button>
+
+        <!-- Download Area -->
+        <div class="download-area" id="encode-download-area">
+            <div class="card">
+                <div class="card-title"><span class="icon">✅</span> <span data-i18n="download_title">编码完成！</span></div>
+                <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;" data-i18n="download_hint">
+                    图片看起来和原来一样，但秘密信息已隐藏在文件中。下载后发送给接收者即可。
+                </div>
+                <div class="preview-container" style="max-height:240px;">
+                    <img id="encode-result-img" alt="Result" style="max-height:240px;">
+                </div>
+                <button class="btn btn-primary" onclick="downloadEncoded()" style="width:auto;margin-top:12px;">
+                    💾 <span data-i18n="download_btn">下载加密图片</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== DECODE TAB ========== -->
+    <div class="tab-content" id="tab-decode">
+
+        <!-- Step 1: Upload Image -->
+        <div class="card">
+            <div class="card-title"><span class="icon">📥</span> <span data-i18n="decode_step1">上传含有隐藏信息的图片</span></div>
+            <div class="upload-zone" id="decode-upload-zone" onclick="document.getElementById('decode-file-input').click()">
+                <div class="upload-icon">🔍</div>
+                <div class="upload-text" data-i18n="decode_upload_text">点击或拖拽上传 PNG 图片</div>
+                <div class="upload-hint" data-i18n="decode_upload_hint">将自动检测是否含有隐藏信息</div>
+                <input type="file" id="decode-file-input" accept="image/png" onchange="handleFileSelect(this, 'decode')">
+            </div>
+            <div class="preview-area" id="decode-preview-area">
+                <div class="preview-container"><img id="decode-preview-img" alt="Preview"></div>
+                <div class="preview-info" id="decode-preview-info"></div>
+                <div style="margin-top:10px;" id="decode-status"></div>
+            </div>
+        </div>
+
+        <!-- Password -->
+        <div class="card" id="decode-password-card" style="display:none;">
+            <div class="card-title"><span class="icon">🔑</span> <span data-i18n="decode_pwd_title">输入解密口令</span></div>
+            <input type="password" id="decode-password" data-i18n-placeholder="decode_pwd_placeholder" placeholder="输入口令查看隐藏信息">
+            <div style="margin-top:6px;font-size:12px;color:var(--text-secondary);" data-i18n="decode_pwd_hint">
+                此图片中的信息已加密，需要输入正确的口令才能查看。
+            </div>
+        </div>
+
+        <!-- Decode Button -->
+        <button class="btn btn-primary" id="decode-btn" onclick="doDecode()" disabled>
+            <span data-i18n="decode_btn">🔓 解密查看内容</span>
+        </button>
+
+        <!-- Result -->
+        <div class="card" style="display:none;" id="decode-result-card">
+            <div class="card-title"><span class="icon">📄</span> <span data-i18n="decode_result_title">隐藏信息</span></div>
+            <div class="result-box show" id="decode-result-text"></div>
+            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                <button class="btn btn-outline btn-sm" onclick="copyResult()">📋 <span data-i18n="copy_btn">复制内容</span></button>
+                <span style="font-size:12px;color:var(--text-secondary);align-self:center;" id="decode-msg-meta"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="how-it-works" style="margin-top:24px;">
+        <details>
+            <summary data-i18n="how_title">💡 工作原理 / How it works</summary>
+            <ol class="steps">
+                <li data-i18n="how_1">PNG 图片允许在文件中嵌入文本元数据（tEXt 数据块）</li>
+                <li data-i18n="how_2">编码时，你的文本（可选加密）被写入 PNG 的隐藏数据块中</li>
+                <li data-i18n="how_3">图片看起来完全正常，任何图片查看器都能打开</li>
+                <li data-i18n="how_4">只有用本工具才能读取其中隐藏的内容</li>
+                <li data-i18n="how_5">⚠️ 注意：通过社交媒体发送图片可能会被压缩，导致隐藏信息丢失</li>
+                <li data-i18n="how_6">✅ 建议：通过邮件附件、网盘、即时通讯"原图/文件"方式发送</li>
+            </ol>
+        </details>
+    </div>
+</main>
+
+<footer class="footer">
+    <span>PicSecret 图密 — 图片隐写通信工具 | </span>
+    <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>
+    <span> | 纯前端 · 无需后端 · 开源</span>
+</footer>
+
+<script>
+// ============================================================================
+// 1. i18n 国际化
+// ============================================================================
+const i18n = {
+    zh: {
+        subtitle: '图片隐写通信工具',
+        tab_encode: '编码隐藏',
+        tab_decode: '解码查看',
+        step1_title: '第1步：选择载体图片',
+        upload_text: '点击或拖拽上传 PNG 图片',
+        upload_hint: '支持 PNG 格式，图片作为信息载体',
+        step2_title: '第2步：输入秘密信息',
+        msg_placeholder: '在这里输入你想隐藏的秘密信息...\n\n支持任意语言文字，可以很长哦',
+        step3_title: '第3步：设置口令（可选）',
+        pwd_placeholder: '设置加密口令（留空则不加密）',
+        pwd_hint: '设置口令后，信息将使用 AES-256 加密。查看者必须输入相同口令才能解密。',
+        encode_btn: '🔒 编码并生成图片',
+        download_title: '✅ 编码完成！',
+        download_hint: '图片看起来和原来一样，但秘密信息已隐藏在文件中。下载后发送给接收者即可。',
+        download_btn: '💾 下载加密图片',
+        decode_step1: '上传含有隐藏信息的图片',
+        decode_upload_text: '点击或拖拽上传 PNG 图片',
+        decode_upload_hint: '将自动检测是否含有隐藏信息',
+        decode_pwd_title: '输入解密口令',
+        decode_pwd_placeholder: '输入口令查看隐藏信息',
+        decode_pwd_hint: '此图片中的信息已加密，需要输入正确的口令才能查看。',
+        decode_btn: '🔓 解密查看内容',
+        decode_result_title: '隐藏信息',
+        copy_btn: '复制内容',
+        how_title: '💡 工作原理 / How it works',
+        how_1: 'PNG 图片允许在文件中嵌入文本元数据（tEXt 数据块）',
+        how_2: '编码时，你的文本（可选加密）被写入 PNG 的隐藏数据块中',
+        how_3: '图片看起来完全正常，任何图片查看器都能打开',
+        how_4: '只有用本工具才能读取其中隐藏的内容',
+        how_5: '⚠️ 注意：通过社交媒体发送图片可能会被压缩，导致隐藏信息丢失',
+        how_6: '✅ 建议：通过邮件附件、网盘、即时通讯"原图/文件"方式发送',
+        // Toast messages
+        toast_no_image: '请先上传一张 PNG 图片',
+        toast_no_message: '请输入要隐藏的信息',
+        toast_not_png: '请选择 PNG 格式的图片',
+        toast_encode_ok: '✅ 编码成功！点击下方下载图片',
+        toast_decode_none: '此图片中没有隐藏信息',
+        toast_decode_need_pwd: '此信息已加密，请输入口令',
+        toast_decode_wrong_pwd: '❌ 口令错误，无法解密',
+        toast_decode_ok: '✅ 解密成功',
+        toast_copied: '已复制到剪贴板',
+        toast_file_error: '文件读取失败，请重试',
+        chars: '字符',
+        found_msg: '🔍 检测到隐藏信息',
+        found_encrypted: '🔐 检测到加密信息，需要口令',
+        no_hidden: '📭 未检测到隐藏信息',
+        encoded: '加密',
+        plain: '明文',
+        size: '大小',
+        dimensions: '尺寸',
+    },
+    en: {
+        subtitle: 'Image Steganography Tool',
+        tab_encode: 'Encode',
+        tab_decode: 'Decode',
+        step1_title: 'Step 1: Select Carrier Image',
+        upload_text: 'Click or drag to upload a PNG image',
+        upload_hint: 'PNG format only. The image carries the hidden data.',
+        step2_title: 'Step 2: Enter Secret Message',
+        msg_placeholder: 'Type your secret message here...\n\nAny language supported, can be quite long',
+        step3_title: 'Step 3: Set Password (Optional)',
+        pwd_placeholder: 'Set encryption password (leave empty for no encryption)',
+        pwd_hint: 'When set, the message will be encrypted with AES-256. Recipient must enter the same password.',
+        encode_btn: '🔒 Encode & Generate Image',
+        download_title: '✅ Encoding Complete!',
+        download_hint: 'The image looks identical but the secret is hidden inside. Download and send to the recipient.',
+        download_btn: '💾 Download Encoded Image',
+        decode_step1: 'Upload Image with Hidden Data',
+        decode_upload_text: 'Click or drag to upload a PNG image',
+        decode_upload_hint: 'Hidden messages will be auto-detected',
+        decode_pwd_title: 'Enter Decryption Password',
+        decode_pwd_placeholder: 'Enter password to reveal hidden message',
+        decode_pwd_hint: 'This image contains encrypted data. Enter the correct password to decrypt.',
+        decode_btn: '🔓 Decrypt & Reveal',
+        decode_result_title: 'Hidden Message',
+        copy_btn: 'Copy Message',
+        how_title: '💡 How it works / 工作原理',
+        how_1: 'PNG format allows embedding text metadata in tEXt data chunks',
+        how_2: 'When encoding, your text (optionally encrypted) is written into a hidden PNG chunk',
+        how_3: 'The image looks completely normal — any image viewer can open it',
+        how_4: 'Only this tool can read the hidden content inside',
+        how_5: '⚠️ Note: Sending via social media may recompress the image and strip hidden data',
+        how_6: '✅ Tip: Send as email attachment, cloud drive, or messaging "original/file" mode',
+        // Toast messages
+        toast_no_image: 'Please upload a PNG image first',
+        toast_no_message: 'Please enter a message to hide',
+        toast_not_png: 'Please select a PNG image',
+        toast_encode_ok: '✅ Encoding successful! Download below.',
+        toast_decode_none: 'No hidden message found in this image',
+        toast_decode_need_pwd: 'This message is encrypted, please enter password',
+        toast_decode_wrong_pwd: '❌ Wrong password, decryption failed',
+        toast_decode_ok: '✅ Decryption successful',
+        toast_copied: 'Copied to clipboard',
+        toast_file_error: 'File read error, please try again',
+        chars: 'chars',
+        found_msg: '🔍 Hidden message detected',
+        found_encrypted: '🔐 Encrypted data detected, password required',
+        no_hidden: '📭 No hidden data detected',
+        encoded: 'Encrypted',
+        plain: 'Plaintext',
+        size: 'Size',
+        dimensions: 'Dimensions',
+    }
+};
+
+let currentLang = 'zh';
+
+function t(key) {
+    return i18n[currentLang]?.[key] || i18n['zh'][key] || key;
+}
+
+function switchLang(lang) {
+    currentLang = lang;
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.placeholder = t(el.dataset.i18nPlaceholder);
+    });
+    // Re-translate dynamic text
+    updatePreviewInfo('encode');
+    updatePreviewInfo('decode');
+    updateCharCount();
+    updateDecodeStatus();
+}
+
+// ============================================================================
+// 2. CRC32 for PNG
+// ============================================================================
+const crcTable = (() => {
+    const t = new Int32Array(256);
+    for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        t[n] = c;
+    }
+    return t;
+})();
+
+function crc32(data) {
+    let crc = -1;
+    for (let i = 0; i < data.length; i++) {
+        crc = (crc >>> 8) ^ crcTable[(crc ^ data[i]) & 0xFF];
+    }
+    return (crc ^ -1) >>> 0;
+}
+
+// ============================================================================
+// 3. PNG Chunk Operations
+// ============================================================================
+const CHUNK_KEYWORD = 'psmsg'; // pic secret message
+const PLAIN_PREFIX = 'PLAIN:';
+const ENC_PREFIX = 'ENC:';
+const PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
+
+function parsePNGChunks(buffer) {
+    const chunks = [];
+    const view = new DataView(buffer);
+    const len = buffer.byteLength;
+    let offset = 8; // skip PNG signature
+
+    while (offset + 12 <= len) {
+        const clen = view.getUint32(offset, false);
+        if (offset + 12 + clen > len) break;
+        const type = String.fromCharCode(
+            view.getUint8(offset + 4), view.getUint8(offset + 5),
+            view.getUint8(offset + 6), view.getUint8(offset + 7)
+        );
+        const data = new Uint8Array(buffer.slice(offset + 8, offset + 8 + clen));
+        const crc = view.getUint32(offset + 8 + clen, false);
+        chunks.push({ type, data, length: clen, offset, crc: crc >>> 0 });
+        offset += 12 + clen;
+        if (type === 'IEND') break;
+    }
+    return chunks;
+}
+
+function createTextChunk(keyword, text) {
+    const enc = new TextEncoder();
+    const kwBytes = enc.encode(keyword);
+    const textBytes = enc.encode(text);
+    // data = keyword + null + text
+    const data = new Uint8Array(kwBytes.length + 1 + textBytes.length);
+    data.set(kwBytes, 0);
+    data[kwBytes.length] = 0;
+    data.set(textBytes, kwBytes.length + 1);
+
+    const typeBytes = enc.encode('tEXt');
+    // CRC over: type + data
+    const crcInput = new Uint8Array(4 + data.length);
+    crcInput.set(typeBytes, 0);
+    crcInput.set(data, 4);
+    const crcVal = crc32(crcInput);
+
+    // Build chunk: 4(len) + 4(type) + data + 4(crc)
+    const chunk = new Uint8Array(4 + 4 + data.length + 4);
+    new DataView(chunk.buffer).setUint32(0, data.length, false);
+    chunk.set(typeBytes, 4);
+    chunk.set(data, 8);
+    new DataView(chunk.buffer).setUint32(8 + data.length, crcVal, false);
+    return chunk;
+}
+
+function embedTextInPNG(buffer, text) {
+    const chunks = parsePNGChunks(buffer);
+
+    // Remove existing psmsg chunks
+    const filtered = chunks.filter(c => {
+        if (c.type !== 'tEXt') return true;
+        const d = c.data;
+        let np = -1;
+        for (let i = 0; i < d.length; i++) { if (d[i] === 0) { np = i; break; } }
+        if (np === -1) return true;
+        const kw = new TextDecoder().decode(d.slice(0, np));
+        return kw !== CHUNK_KEYWORD;
+    });
+
+    // Find IEND
+    const iendIdx = filtered.findIndex(c => c.type === 'IEND');
+    if (iendIdx === -1) throw new Error('Invalid PNG: no IEND chunk');
+
+    // Build new PNG
+    const newChunk = createTextChunk(CHUNK_KEYWORD, text);
+    const parts = [];
+    // PNG signature
+    const sig = new Uint8Array(buffer.slice(0, 8));
+    parts.push(sig);
+    // Chunks before IEND
+    for (let i = 0; i < iendIdx; i++) {
+        const c = filtered[i];
+        parts.push(new Uint8Array(buffer.slice(c.offset, c.offset + 12 + c.length)));
+    }
+    // Our new chunk
+    parts.push(newChunk);
+    // IEND
+    const iend = filtered[iendIdx];
+    parts.push(new Uint8Array(buffer.slice(iend.offset, iend.offset + 12 + iend.length)));
+
+    // Concatenate
+    const totalLen = parts.reduce((s, p) => s + p.length, 0);
+    const result = new Uint8Array(totalLen);
+    let off = 0;
+    for (const p of parts) { result.set(p, off); off += p.length; }
+    return result.buffer;
+}
+
+function extractTextFromPNG(buffer) {
+    const chunks = parsePNGChunks(buffer);
+    for (const chunk of chunks) {
+        if (chunk.type !== 'tEXt') continue;
+        const d = chunk.data;
+        let np = -1;
+        for (let i = 0; i < d.length; i++) { if (d[i] === 0) { np = i; break; } }
+        if (np === -1) continue;
+        const kw = new TextDecoder().decode(d.slice(0, np));
+        if (kw === CHUNK_KEYWORD) {
+            return new TextDecoder().decode(d.slice(np + 1));
+        }
+    }
+    return null;
+}
+
+// ============================================================================
+// 4. Crypto Operations (Web Crypto API)
+// ============================================================================
+async function encryptText(plaintext, password) {
+    const enc = new TextEncoder();
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+
+    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt']
+    );
+
+    const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        enc.encode(plaintext)
+    );
+
+    const saltB64 = arrayBufToBase64(salt.buffer);
+    const ivB64 = arrayBufToBase64(iv.buffer);
+    const ctB64 = arrayBufToBase64(ciphertext);
+
+    return ENC_PREFIX + saltB64 + ':' + ivB64 + ':' + ctB64;
+}
+
+async function decryptText(packed, password) {
+    if (!packed.startsWith(ENC_PREFIX)) throw new Error('Not encrypted data');
+    const body = packed.slice(ENC_PREFIX.length);
+    const parts = body.split(':');
+    if (parts.length !== 3) throw new Error('Invalid encrypted format');
+
+    const salt = base64ToUint8Array(parts[0]);
+    const iv = base64ToUint8Array(parts[1]);
+    const ciphertext = base64ToUint8Array(parts[2]);
+
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt']
+    );
+
+    const plaintext = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        ciphertext
+    );
+
+    return new TextDecoder().decode(plaintext);
+}
+
+function arrayBufToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+}
+
+function base64ToUint8Array(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+}
+
+// ============================================================================
+// 5. Global State
+// ============================================================================
+let activeTab = 'encode';
+let encodeImageFile = null;
+let encodeImageBuffer = null;
+let encodeOriginalName = '';
+let encodedBuffer = null;
+let decodeImageFile = null;
+let decodeImageBuffer = null;
+let decodeDetectedType = null; // 'none' | 'plain' | 'encrypted'
+let decodeDetectedText = null;
+
+// ============================================================================
+// 6. Tab Switching
+// ============================================================================
+function switchTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+}
+
+// ============================================================================
+// 7. File Upload Handling
+// ============================================================================
+function setupDragDrop(zoneId, inputId, mode) {
+    const zone = document.getElementById(zoneId);
+    ['dragenter', 'dragover'].forEach(evt => {
+        zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+        zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.remove('drag-over'); });
+    });
+    zone.addEventListener('drop', e => {
+        const file = e.dataTransfer.files[0];
+        if (file) processUploadedFile(file, mode);
+    });
+}
+
+function handleFileSelect(input, mode) {
+    const file = input.files[0];
+    if (file) processUploadedFile(file, mode);
+}
+
+function processUploadedFile(file, mode) {
+    if (!file.type.includes('png') && !file.name.toLowerCase().endsWith('.png')) {
+        showToast(t('toast_not_png'), 'error');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const buffer = e.target.result;
+        if (mode === 'encode') {
+            encodeImageFile = file;
+            encodeImageBuffer = buffer;
+            encodeOriginalName = file.name.replace(/\.png$/i, '') || 'image';
+            encodedBuffer = null;
+            // Show preview
+            const url = URL.createObjectURL(new Blob([buffer], { type: 'image/png' }));
+            showPreview('encode', url, file);
+            document.getElementById('encode-download-area').classList.remove('show');
+            document.getElementById('encode-btn').disabled = false;
+            updateCharCount();
+        } else {
+            decodeImageFile = file;
+            decodeImageBuffer = buffer;
+            decodeDetectedType = null;
+            decodeDetectedText = null;
+            // Show preview
+            const url = URL.createObjectURL(new Blob([buffer], { type: 'image/png' }));
+            showPreview('decode', url, file);
+            // Auto-detect
+            autoDetectHiddenMessage(buffer);
+        }
+    };
+    reader.onerror = function() {
+        showToast(t('toast_file_error'), 'error');
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function showPreview(mode, url, file) {
+    const img = document.getElementById(mode + '-preview-img');
+    const area = document.getElementById(mode + '-preview-area');
+    img.src = url;
+    area.classList.add('show');
+
+    // Get dimensions
+    const tempImg = new Image();
+    tempImg.onload = function() {
+        document.getElementById(mode + '-preview-info').innerHTML = `
+            <span>📄 ${file.name}</span>
+            <span>📏 ${formatSize(file.size)}</span>
+            <span>📐 ${tempImg.width}×${tempImg.height}px</span>
+        `;
+    };
+    tempImg.src = url;
+}
+
+function updatePreviewInfo(mode) {
+    const file = mode === 'encode' ? encodeImageFile : decodeImageFile;
+    if (!file) return;
+    const infoEl = document.getElementById(mode + '-preview-info');
+    if (infoEl) {
+        infoEl.innerHTML = `
+            <span>📄 ${file.name}</span>
+            <span>📏 ${formatSize(file.size)}</span>
+        `;
+    }
+}
+
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// ============================================================================
+// 8. Auto-detect hidden message
+// ============================================================================
+function autoDetectHiddenMessage(buffer) {
+    const text = extractTextFromPNG(buffer);
+    const statusEl = document.getElementById('decode-status');
+    const pwdCard = document.getElementById('decode-password-card');
+    const decodeBtn = document.getElementById('decode-btn');
+
+    if (!text) {
+        decodeDetectedType = 'none';
+        decodeDetectedText = null;
+        statusEl.innerHTML = `<span class="status-badge not-found">${t('no_hidden')}</span>`;
+        pwdCard.style.display = 'none';
+        decodeBtn.disabled = true;
+        document.getElementById('decode-result-card').style.display = 'none';
+    } else if (text.startsWith(ENC_PREFIX)) {
+        decodeDetectedType = 'encrypted';
+        decodeDetectedText = text;
+        statusEl.innerHTML = `<span class="status-badge encrypted">${t('found_encrypted')}</span>`;
+        pwdCard.style.display = 'block';
+        decodeBtn.disabled = false;
+        document.getElementById('decode-result-card').style.display = 'none';
+    } else if (text.startsWith(PLAIN_PREFIX)) {
+        decodeDetectedType = 'plain';
+        decodeDetectedText = text;
+        statusEl.innerHTML = `<span class="status-badge found">${t('found_msg')}</span>`;
+        pwdCard.style.display = 'none';
+        decodeBtn.disabled = false;
+        document.getElementById('decode-result-card').style.display = 'none';
+    } else {
+        // Legacy unmarked data - treat as plain
+        decodeDetectedType = 'plain';
+        decodeDetectedText = PLAIN_PREFIX + arrayBufToBase64(new TextEncoder().encode(text).buffer);
+        statusEl.innerHTML = `<span class="status-badge found">${t('found_msg')}</span>`;
+        pwdCard.style.display = 'none';
+        decodeBtn.disabled = false;
+        document.getElementById('decode-result-card').style.display = 'none';
+    }
+    updateDecodeStatus();
+}
+
+function updateDecodeStatus() {
+    if (!decodeDetectedType) return;
+    const statusEl = document.getElementById('decode-status');
+    const pwdCard = document.getElementById('decode-password-card');
+    const decodeBtn = document.getElementById('decode-btn');
+
+    if (decodeDetectedType === 'none') {
+        statusEl.innerHTML = `<span class="status-badge not-found">${t('no_hidden')}</span>`;
+        pwdCard.style.display = 'none';
+        decodeBtn.disabled = true;
+    } else if (decodeDetectedType === 'encrypted') {
+        statusEl.innerHTML = `<span class="status-badge encrypted">${t('found_encrypted')}</span>`;
+        pwdCard.style.display = 'block';
+        decodeBtn.disabled = false;
+    } else {
+        statusEl.innerHTML = `<span class="status-badge found">${t('found_msg')}</span>`;
+        pwdCard.style.display = 'none';
+        decodeBtn.disabled = false;
+    }
+}
+
+// ============================================================================
+// 9. Encode Operation
+// ============================================================================
+async function doEncode() {
+    if (!encodeImageBuffer) { showToast(t('toast_no_image'), 'warning'); return; }
+    const message = document.getElementById('encode-message').value.trim();
+    if (!message) { showToast(t('toast_no_message'), 'warning'); return; }
+
+    const password = document.getElementById('encode-password').value;
+    const btn = document.getElementById('encode-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> ' + (currentLang === 'zh' ? '编码中...' : 'Encoding...');
+
+    try {
+        let packedData;
+        if (password) {
+            packedData = await encryptText(message, password);
+        } else {
+            packedData = PLAIN_PREFIX + arrayBufToBase64(new TextEncoder().encode(message).buffer);
+        }
+
+        encodedBuffer = embedTextInPNG(encodeImageBuffer, packedData);
+
+        // Show result
+        const url = URL.createObjectURL(new Blob([encodedBuffer], { type: 'image/png' }));
+        document.getElementById('encode-result-img').src = url;
+        document.getElementById('encode-download-area').classList.add('show');
+        document.getElementById('encode-download-area').scrollIntoView({ behavior: 'smooth' });
+
+        showToast(t('toast_encode_ok'), 'success');
+    } catch (err) {
+        console.error('Encode error:', err);
+        showToast('❌ ' + (currentLang === 'zh' ? '编码失败' : 'Encoding failed'), 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = t('encode_btn');
+    }
+}
+
+function downloadEncoded() {
+    if (!encodedBuffer) return;
+    const blob = new Blob([encodedBuffer], { type: 'image/png' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = encodeOriginalName + '_secret.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// ============================================================================
+// 10. Decode Operation
+// ============================================================================
+async function doDecode() {
+    if (!decodeImageBuffer || !decodeDetectedText) {
+        showToast(t('toast_decode_none'), 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('decode-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> ' + (currentLang === 'zh' ? '解码中...' : 'Decoding...');
+
+    try {
+        let resultText;
+        if (decodeDetectedType === 'encrypted') {
+            const password = document.getElementById('decode-password').value;
+            if (!password) { showToast(t('toast_decode_need_pwd'), 'warning'); btn.disabled = false; btn.innerHTML = t('decode_btn'); return; }
+            try {
+                resultText = await decryptText(decodeDetectedText, password);
+            } catch (e) {
+                showToast(t('toast_decode_wrong_pwd'), 'error');
+                btn.disabled = false;
+                btn.innerHTML = t('decode_btn');
+                return;
+            }
+        } else {
+            // Plain
+            const body = decodeDetectedText.startsWith(PLAIN_PREFIX)
+                ? decodeDetectedText.slice(PLAIN_PREFIX.length)
+                : decodeDetectedText;
+            try {
+                const bytes = base64ToUint8Array(body);
+                resultText = new TextDecoder().decode(bytes);
+            } catch {
+                resultText = decodeDetectedText; // fallback
+            }
+        }
+
+        // Show result
+        document.getElementById('decode-result-text').textContent = resultText;
+        document.getElementById('decode-result-card').style.display = 'block';
+        document.getElementById('decode-msg-meta').textContent =
+            `${resultText.length} ${t('chars')} | ${decodeDetectedType === 'encrypted' ? t('encoded') : t('plain')}`;
+        document.getElementById('decode-result-card').scrollIntoView({ behavior: 'smooth' });
+        showToast(t('toast_decode_ok'), 'success');
+    } catch (err) {
+        console.error('Decode error:', err);
+        showToast('❌ ' + (currentLang === 'zh' ? '解码失败' : 'Decoding failed'), 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = t('decode_btn');
+    }
+}
+
+function copyResult() {
+    const text = document.getElementById('decode-result-text').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast(t('toast_copied'), 'success');
+    }).catch(() => {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast(t('toast_copied'), 'success');
+    });
+}
+
+// ============================================================================
+// 11. Toast & Helpers
+// ============================================================================
+let toastTimer;
+
+function showToast(message, type) {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+    clearTimeout(toastTimer);
+
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = message;
+    document.body.appendChild(el);
+    toastTimer = setTimeout(() => el.remove(), 2500);
+}
+
+function updateCharCount() {
+    const msg = document.getElementById('encode-message').value;
+    document.getElementById('encode-char-count').textContent =
+        msg.length + ' ' + t('chars');
+}
+
+// ============================================================================
+// 12. Init
+// ============================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    setupDragDrop('encode-upload-zone', 'encode-file-input', 'encode');
+    setupDragDrop('decode-upload-zone', 'decode-file-input', 'decode');
+
+    document.getElementById('encode-message').addEventListener('input', updateCharCount);
+    document.getElementById('encode-password').addEventListener('keydown', e => {
+        if (e.key === 'Enter') doEncode();
+    });
+    document.getElementById('decode-password').addEventListener('keydown', e => {
+        if (e.key === 'Enter') doDecode();
+    });
+
+    updateCharCount();
+});
+</script>
+</body>
+</html>
