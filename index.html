@@ -494,9 +494,9 @@
             <div class="card-title"><span class="icon">📷</span> <span data-i18n="step1_title">第1步：选择载体图片</span></div>
             <div class="upload-zone" id="encode-upload-zone" onclick="document.getElementById('encode-file-input').click()">
                 <div class="upload-icon">📁</div>
-                <div class="upload-text" data-i18n="upload_text">点击或拖拽上传 PNG 图片</div>
-                <div class="upload-hint" data-i18n="upload_hint">支持 PNG 格式，图片作为信息载体</div>
-                <input type="file" id="encode-file-input" accept="image/png" onchange="handleFileSelect(this, 'encode')">
+                <div class="upload-text" data-i18n="upload_text">点击或拖拽上传图片</div>
+                <div class="upload-hint" data-i18n="upload_hint">支持 JPG / PNG / WebP 等，自动转 PNG 后隐藏信息</div>
+                <input type="file" id="encode-file-input" accept="image/*" onchange="handleFileSelect(this, 'encode')">
             </div>
             <div class="preview-area" id="encode-preview-area">
                 <div class="preview-container"><img id="encode-preview-img" alt="Preview"></div>
@@ -643,7 +643,7 @@ const i18n = {
         tab_decode: '解码查看',
         step1_title: '第1步：选择载体图片',
         upload_text: '点击或拖拽上传 PNG 图片',
-        upload_hint: '支持 PNG 格式，图片作为信息载体',
+        upload_hint: '支持 JPG / PNG / WebP 等，自动转 PNG 后隐藏信息',
         step2_title: '第2步：输入秘密信息',
         msg_placeholder: '在这里输入你想隐藏的秘密信息...\n\n支持任意语言文字，可以很长哦',
         step3_title: '第3步：设置口令（可选）',
@@ -703,7 +703,7 @@ const i18n = {
         tab_decode: 'Decode',
         step1_title: 'Step 1: Select Carrier Image',
         upload_text: 'Click or drag to upload a PNG image',
-        upload_hint: 'PNG format only. The image carries the hidden data.',
+        upload_hint: 'Supports JPG, PNG, WebP etc. Auto-converts to PNG',
         step2_title: 'Step 2: Enter Secret Message',
         msg_placeholder: 'Type your secret message here...\n\nAny language supported, can be quite long',
         step3_title: 'Step 3: Set Password (Optional)',
@@ -1306,8 +1306,52 @@ function handleFileSelect(input, mode) {
     if (file) processUploadedFile(file, mode);
 }
 
+function isPNG(buffer) {
+    if (buffer.byteLength < 8) return false;
+    const sig = new Uint8Array(buffer.slice(0, 8));
+    return sig[0] === 137 && sig[1] === 80 && sig[2] === 78 && sig[3] === 71;
+}
+
+function convertToPNGBuffer(buffer, callback) {
+    const blob = new Blob([buffer]);
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = function() {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob(function(pngBlob) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                callback(e.target.result, img.width, img.height);
+                URL.revokeObjectURL(url);
+            };
+            reader.readAsArrayBuffer(pngBlob);
+        }, 'image/png');
+    };
+    img.onerror = function() {
+        showToast(t('toast_file_error'), 'error');
+        URL.revokeObjectURL(url);
+    };
+    img.src = url;
+}
+
+function setupEncodeBuffer(buffer, file) {
+    encodeImageFile = file;
+    encodeImageBuffer = buffer;
+    encodeOriginalName = file.name.replace(/\.(png|jpg|jpeg|webp|gif|bmp)$/i, '') || 'image';
+    encodedBuffer = null;
+    const url = URL.createObjectURL(new Blob([buffer], { type: 'image/png' }));
+    showPreview('encode', url, file);
+    document.getElementById('encode-download-area').classList.remove('show');
+    document.getElementById('encode-btn').disabled = false;
+    updateCharCount();
+}
+
 function processUploadedFile(file, mode) {
-    if (!file.type.includes('png') && !file.name.toLowerCase().endsWith('.png')) {
+    if (mode !== 'encode' && !file.type.includes('png') && !file.name.toLowerCase().endsWith('.png')) {
         showToast(t('toast_not_png'), 'error');
         return;
     }
@@ -1316,15 +1360,15 @@ function processUploadedFile(file, mode) {
     reader.onload = function(e) {
         const buffer = e.target.result;
         if (mode === 'encode') {
-            encodeImageFile = file;
-            encodeImageBuffer = buffer;
-            encodeOriginalName = file.name.replace(/\.png$/i, '') || 'image';
-            encodedBuffer = null;
-            const url = URL.createObjectURL(new Blob([buffer], { type: 'image/png' }));
-            showPreview('encode', url, file);
-            document.getElementById('encode-download-area').classList.remove('show');
-            document.getElementById('encode-btn').disabled = false;
-            updateCharCount();
+            if (isPNG(buffer)) {
+                setupEncodeBuffer(buffer, file);
+            } else {
+                showToast(currentLang === 'zh' ? '正在转换图片格式...' : 'Converting image...', 'success');
+                convertToPNGBuffer(buffer, function(pngBuffer) {
+                    const newFile = new File([pngBuffer], file.name.replace(/\.[^.]+$/, '') + '.png', { type: 'image/png' });
+                    setupEncodeBuffer(pngBuffer, newFile);
+                });
+            }
         } else if (mode === 'meta') {
             metaImageFile = file;
             metaImageBuffer = buffer;
